@@ -45,11 +45,40 @@
 
 ;; solution part 2
 
-;; AAAAA 0
-;; AA8AA 0
-;; 23332 0
-;; TTT98 0
-;; 23432 0
-;; A23A4 0
-;; 23456 0
+(def card->value*
+  {\J 1 
+   \2 2 \3 3 \4 4 \5 5 \6 6 \7 7 \8 8 \9 9
+   \T 10 \Q 11 \K 12 \A 13})
+
+(defn strongest-possible-hand-type [hand]
+  (apply max
+         (for [possible-hand (map #(replace {\J %} hand) (keys (dissoc card->value* \J)))]
+               (-> possible-hand
+                   frequencies
+                   vals
+                   frequencies
+                   (dissoc 1)
+                   type->value))))
+
+(time
+ (let [input (->> (slurp "src/day07/input.txt")
+                  string/split-lines
+                  (map #(string/split % #" ")))
+       hands (reduce (fn [acc [hand bid]]                       
+                       (conj acc {:hand (map card->value* hand)
+                                  :bid (Integer. bid)
+                                  :type (strongest-possible-hand-type hand)}))
+                     []
+                     input)
+       rank (->> hands
+                 (sort-by (juxt :type
+                                (comp #(nth % 0) :hand)
+                                (comp #(nth % 1) :hand)
+                                (comp #(nth % 2) :hand)
+                                (comp #(nth % 3) :hand)
+                                (comp #(nth % 4) :hand))))]
+   (->> rank
+        (map-indexed (fn [idx {bid :bid}]
+                       (* bid (inc idx))))
+        (apply +))))
 
