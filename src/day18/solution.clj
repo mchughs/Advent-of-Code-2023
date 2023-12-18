@@ -1,61 +1,68 @@
-(ns day01.solution
-  (:require [clojure.java.io :as io]
-            [clojure.string :as string]))
+ (ns day18.solution
+  (:require [clojure.string :as string]
+            [clojure.core.matrix :as matrix]))
 
-(def ^:private digits
-  #{\1 \2 \3 \4 \5 \6 \7 \8 \9})
+ ;; solution part 1
 
-;; solution part 1
+(def dir->vec
+  {"U" [0 1]
+   "L" [-1 0]
+   "D" [0 -1]
+   "R" [1 0]})
 
-(defn- extract-calibration-value [s]
-  (Integer. (str (some digits s)
-                 (some digits (reverse s)))))
+(defn- parse [s]
+  (let [[direction paces _] (string/split s #" ")]
+    {:direction direction
+     :paces (Integer. paces)}))
 
+(defn shift [n]
+  (into [(last n)] (butlast n)))
+
+(defn poly-area
+  "See shoelace formula: https://en.wikipedia.org/wiki/Shoelace_formula"
+  [xs ys]
+  (* 0.5 (abs (- (matrix/dot xs (shift ys))
+                 (matrix/dot ys (shift xs))))))
+
+(defn- get-trench [input]
+  (reduce (fn [path {:keys [direction paces]}]
+            (let [delta (mapv * (dir->vec direction) [paces paces])]
+              (->> (last path)
+                   (mapv + delta)
+                   (conj path))))
+          [[0 0]]
+          input))
+
+(defn calculate-volume [input]
+  (let [trench (get-trench input)
+        area (poly-area (map first trench)
+                        (map last trench))
+        exterior-points (transduce (map :paces) + 0 input)
+        ;; See Pick's theorem: https://en.wikipedia.org/wiki/Pick%27s_theorem#Formula
+        interior-points (- (inc area) (quot exterior-points 2))]
+    (long (+ interior-points exterior-points))))
+
+;; ~30ms
 (time
- (with-open [rdr (io/reader "src/day01/input.txt")]
-   (->> rdr
-        line-seq
-        (transduce (map extract-calibration-value)
-                   +
-                   0))))
+ (let [input (map parse (string/split-lines (slurp "src/day18/input.txt")))]
+   (calculate-volume input)))
 
-;; solution part 2
+ ;; solution part 2
 
-(def ^:private digits->representations
-  {1 #{"1" "one" "eno"}
-   2 #{"2" "two" "owt"}
-   3 #{"3" "three" "eerht"}
-   4 #{"4" "four" "ruof"}
-   5 #{"5" "five" "evif"}
-   6 #{"6" "six" "xis"}
-   7 #{"7" "seven" "neves"}
-   8 #{"8" "eight" "thgie"}
-   9 #{"9" "nine" "enin"}})
+(def decode
+  {\0 "U"
+   \1 "L"
+   \2 "D"
+   \3 "R"})
 
-(defn- invert-map-of-sets [m]
-  (reduce (fn [a [k v]] (assoc a k v))
-          {}
-          (for [[k s] m
-                v s]
-            [v k])))
+(defn parse* [s]
+  (let [[_ _ z] (string/split s #" ")]
+    {:direction (decode (get z 7))
+     :paces (-> z
+                (subs 2 7)
+                (Integer/parseInt 16))}))
 
-(def ^:private representations->digits
-  (invert-map-of-sets digits->representations))
-
-(def ^:private match-string
-  (string/join "|" (map #(string/join "|" %) (vals digits->representations))))
-
-(defn- find-first-digit [s]
-  (representations->digits (re-find (re-pattern match-string) s)))
-
-(defn- extract-calibration-value+ [s]
-  (Integer. (str (find-first-digit s)
-                 (find-first-digit (apply str (reverse s))))))
-
+;; ~30ms
 (time
- (with-open [rdr (io/reader "src/day01/input.txt")]
-   (->> rdr
-        line-seq
-        (transduce (map extract-calibration-value+)
-                   +
-                   0))))
+ (let [input (map parse* (string/split-lines (slurp "src/day18/input.txt")))]
+   (calculate-volume input)))
